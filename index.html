@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Voting & Seating System</title>
+  <style>
+    :root{--pink:#ffdfe9;--hot:#ff4f9a;--card:#fff;--muted:#f7e9ef}
+    body{font-family:kanit, Arial, Helvetica, sans-serif;background:var(--pink);margin:0;padding:30px}
+    .container{max-width:1000px;margin:0 auto}
+    .card{background:var(--card);border-radius:10px;padding:22px;box-shadow:0 6px 14px rgba(0,0,0,0.08)}
+    h2{color:var(--hot);margin-top:0}
+    label{display:block;margin:10px 0 6px;font-size:14px}
+    input,select,button{padding:10px;border-radius:8px;border:1px solid #e3cbd3;width:100%;box-sizing:border-box}
+    .row{display:flex;gap:12px}
+    .row .col{flex:1}
+    .btn{background:var(--hot);color:#fff;border:none;cursor:pointer}
+    .btn.ghost{background:transparent;border:2px solid var(--hot);color:var(--hot)}
+    .small{padding:8px;font-size:14px}
+    .hidden{display:none}
+    .center{text-align:center}
+    /* seat grid */
+    .seats{display:grid;grid-template-columns:repeat(5,68px);gap:14px;justify-content:center;margin: 0 auto;}
+    .seat{width:68px;height:60px;background:#cbb39d;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;color:#3b2a1f;cursor:pointer}
+    .seat.booked{background:#9e9e9e;cursor:not-allowed;opacity:0.9}
+    .seat.mine{outline:3px solid #ffb6d6}
+    /* alternate layouts */
+    .layout-2 .seats{grid-template-columns:repeat(8,60px)}
+    .layout-3 .seats{grid-template-columns:repeat(11,60px)}
+    .layout-3 .seats .gap{background:transparent;pointer-events:none}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .notice{background:var(--muted);padding:10px;border-radius:8px;margin-bottom:12px}
+    .footer-actions{display:flex;gap:12px;margin-top:16px}
+    .pink-pill{background:#ffd3e6;padding:10px;border-radius:8px}
+    .gap{
+  background: transparent;
+  pointer-events: none;
+}
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- LOGIN PAGE -->
+    <div id="page-login" class="card">
+      <h2>เข้าสู่ระบบ</h2>
+      <label>เลขประจำตัวนักเรียน</label>
+      <input id="login-uid" placeholder="เช่น 6501234" />
+      <label>รหัสผ่าน</label>
+      <input id="login-pass" type="password" placeholder="รหัสผ่าน" />
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn" onclick="doLogin()">เข้าสู่ระบบ</button>
+        <button class="btn ghost" onclick="showPage('page-signup')">สมัครสมาชิก</button>
+      </div>
+      <p id="login-msg" style="color:#c0392b"></p>
+    </div>
+
+    <!-- SIGNUP PAGE -->
+    <div id="page-signup" class="card hidden">
+      <h2>สมัครสมาชิก</h2>
+      <label>ชื่อ - นามสกุล</label>
+      <input id="signup-name" placeholder="ชื่อ นามสกุล" />
+      <label>เลขประจำตัวนักเรียน</label>
+      <input id="signup-uid" placeholder="เช่น 6501234" />
+      <label>รหัสผ่าน</label>
+      <input id="signup-pass" type="password" />
+      <label>เลือกห้อง</label>
+      <select id="signup-room"></select>
+
+
+
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn" onclick="doSignup()">สมัคร</button>
+        <button class="btn ghost" onclick="showPage('page-login')">ยกเลิก</button>
+      </div>
+      <p id="signup-msg" style="color:#c0392b"></p>
+    </div>
+
+    <!-- ADMIN PAGE -->
+    <div id="page-admin" class="card hidden">
+      <div class="topbar">
+        <h2>แผงควบคุมแอดมิน</h2>
+        <button class="btn ghost" onclick="doLogout()">ออกจากระบบ</button>
+      </div>
+
+      <div class="notice center">ควบคุมการโหวต / ดูผังที่นั่งทุกห้อง</div>
+
+<div class="center" style="margin-bottom:12px;">
+  <div id="admin-timer-box" class="pink-pill hidden" style="margin-bottom:8px;">
+  เวลาที่เหลือ: <span id="admin-timer-value">00</span> วินาที
+  <div style="height:10px;background:#ffc7dd;border-radius:6px;margin-top:6px;overflow:hidden;">
+    <div id="admin-timer-bar" style="height:100%;width:0%;background:#ff4f9a;transition:width 0.4s;"></div>
+  </div>
+</div>
+</div>
+
+      <div class="footer-actions">
+        <button class="btn" onclick="startVote()">เริ่มโหวต (30 วินาที)</button>
+        <button class="btn ghost" onclick="showPage('page-seat')">ไปหน้าเลือกที่นั่ง</button>
+        <button class="btn ghost" onclick="showPage('page-admin-seatview')">ดูผังที่นั่งทุกห้อง</button>
+        <button class="btn ghost" onclick="resetSystem()">รีเซ็ตระบบ</button>
+      </div>
+    </div>
+
+    <!-- ADMIN SEAT VIEW PAGE -->
+    <div id="page-admin-seatview" class="card hidden">
+      <div class="topbar">
+        <h2>ผังที่นั่ง (แอดมิน)</h2>
+        <button class="btn ghost" onclick="showPage('page-admin')">ย้อนกลับ</button>
+      </div>
+
+      <label>เลือกห้อง</label>
+      <select id="admin-room-select" onchange="renderAdminSeatView()"></select>
+
+      <div id="admin-seat-container" style="margin-top:14px"></div>
+    </div>
+
+    </div>
+
+    <!-- VOTE LAYOUT PAGE -->
+    <div id="page-vote" class="card hidden">
+      <div class="topbar">
+        <h2>โหวตรูปแบบห้องเรียน</h2>
+        <div>
+          <span id="user-info"></span>
+          <button class="btn ghost" onclick="doLogout()">ออกจากระบบ</button>
+        </div>
+      </div>
+
+      <div class="notice center" id="vote-notice">ยังไม่เริ่มการโหวต</div>
+
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <!-- removed room-select-vote for users -->
+        <button class="btn" onclick="castVote(1)">โหวต Layout 1</button>
+        <button class="btn" onclick="castVote(2)">โหวต Layout 2</button>
+        <button class="btn" onclick="castVote(3)">โหวต Layout 3</button>
+      </div>
+
+      <div class="center">
+        <div id="countdown" class="pink-pill hidden">เวลาโหวตรูปแบบ: <span id="countdown-t">00</span> วินาที</div>
+      </div>
+
+      <div style="margin-top:18px">
+        <div style="display:flex;gap:12px">
+          <div class="card" style="flex:1">
+            <h4 class="center">Layout 1</h4>
+            <div style="height:100px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center"><img src="images/layout1.png" style="width:100%;height:100px;object-fit:contain;border-radius:6px"></div>
+            <p class="center">คะแนน: <span id="votes-1">0</span></p>
+          </div>
+          <div class="card" style="flex:1">
+            <h4 class="center">Layout 2</h4>
+            <div style="height:100px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center"><img src="images/layout2.png" style="width:100%;height:100px;object-fit:contain;border-radius:6px"></div>
+            <p class="center">คะแนน: <span id="votes-2">0</span></p>
+          </div>
+          <div class="card" style="flex:1">
+            <h4 class="center">Layout 3</h4>
+            <div style="height:100px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center"><img src="images/layout3.png" style="width:100%;height:100px;object-fit:contain;border-radius:6px"></div>
+            <p class="center">คะแนน: <span id="votes-3">0</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        
+        <button class="btn ghost" onclick="showPage('page-seat')">ไปหน้าเลือกที่นั่ง</button>
+      </div>
+    </div>
+
+    <!-- SEAT SELECTION PAGE -->
+    <div id="page-seat" class="card hidden">
+      <div class="topbar">
+        <h2>เลือกที่นั่ง</h2>
+        <div>
+          <span id="user-info-seat"></span>
+          <button class="btn ghost" onclick="doLogout()">ออกจากระบบ</button>
+        </div>
+      </div>
+
+      <div class="notice center">เลือกห้องสำหรับที่นั่งของคุณ</div>
+      <div style="display:flex;gap:12px;margin-bottom:12px;align-items:center">
+        <select id="room-select-seat" class="hidden"></select>
+        <script>
+          // ถ้าเป็นแอดมิน ให้แสดงตัวเลือกห้อง
+          document.addEventListener('DOMContentLoaded',()=>{
+            if(currentUser && currentUser.uid==='00000'){
+              const sel=document.getElementById('room-select-seat');
+              sel.classList.remove('hidden');
+              sel.innerHTML='';
+              rooms.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o);});
+              sel.addEventListener('change',renderSeatLayout);
+            }
+          });
+        </script>
+        <div style="margin-left:auto">สถานะการเลือกที่นั่ง: <span id="seat-status">-</span></div>
+      </div>
+
+      <div id="layout-preview" style="min-height:480px">
+        <!-- dynamic seat map will render here -->
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:8px">
+  <button class="btn ghost" onclick="cancelMySeat()">ยกเลิกที่นั่งเดิม</button>
+  <button class="btn" onclick="confirmSeat()">ยืนยันที่นั่ง</button>
+  <button class="btn ghost" onclick="showPage('page-vote')">กลับไปหน้าโหวต</button>
+</div>
+
+    </div>
+
+  </div>
+
+  <!-- Firebase v8 SDK (app + database) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+  <script>
+    // --- Firebase config (จากที่คุณให้มา) ---
+    const firebaseConfig = {
+      apiKey: "",
+      authDomain: "voting-system-project-2202f.firebaseapp.com",
+      databaseURL: "https://voting-system-project-2202f-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "voting-system-project-2202f",
+      storageBucket: "voting-system-project-2202f.firebasestorage.app",
+      messagingSenderId: "164961649348",
+      appId: "1:164961649348:web:1c0830057c34fe41da7f91"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // --- global state ---
+    let currentUser = null; // { uid, name, room }
+    const rooms = ['1/8','2/8','3/8','4/1','4/8','5/8','6/8','5/1','5/5','5/10','5/9'];
+    function initSignupRoom(){
+  const sel = document.getElementById('signup-room');
+  if(!sel) return;
+  sel.innerHTML='';
+  rooms.forEach(r=>{
+    const o=document.createElement('option');
+    o.value=r;
+    o.textContent=r;
+    sel.appendChild(o);
+  });
+}
+
+
+    function getSeatCountByRoom(room){
+  switch(room){
+    case '1/8': return 34;
+    case '2/8': return 35;
+    case '3/8': return 36;
+    case '4/8': return 33;
+    case '5/8': return 33;
+    case '6/8': return 32;
+
+    // ✅ ห้องใหม่
+    case '4/1': return 39;
+    case '5/1': return 40;
+    case '5/5': return 38;
+    case '5/10': return 29;
+    case '5/9': return 28;
+
+    default: return 40;
+  }
+}
+
+
+
+    // UI helpers
+    function showPage(id){
+  ['page-login','page-signup','page-vote','page-seat','page-admin','page-admin-seatview']
+    .forEach(p=>document.getElementById(p).classList.add('hidden'));
+
+  document.getElementById(id).classList.remove('hidden');
+
+  if(id === 'page-signup'){
+    initSignupRoom(); // ✅ สำคัญ
+  }
+
+  if(id === 'page-seat'){
+    setTimeout(()=>renderSeatLayout(),0);
+  }
+}
+
+
+    // Signup
+    async function doSignup(){
+      const name = document.getElementById('signup-name').value.trim();
+      const uid = document.getElementById('signup-uid').value.trim();
+      const pass = document.getElementById('signup-pass').value;
+      const room = document.getElementById('signup-room').value;
+      const msg = document.getElementById('signup-msg');
+      msg.textContent = '';
+      if(!name||!uid||!pass){ msg.textContent='กรุณากรอกข้อมูลให้ครบ'; return }
+      const snap = await db.ref('users/'+uid).once('value');
+      if(snap.exists()){ msg.textContent='เลขประตัวนี้มีในระบบแล้ว'; return }
+      await db.ref('users/'+uid).set({name,uid,pass,room});
+      msg.style.color='green'; msg.textContent='สมัครเรียบร้อย ล็อกอินได้เลย';
+      setTimeout(()=>{ showPage('page-login'); msg.textContent=''; },1200);
+    }
+
+    // Login
+    async function doLogin(){
+      const uid = document.getElementById('login-uid').value.trim();
+      const pass = document.getElementById('login-pass').value;
+      const msg = document.getElementById('login-msg'); msg.textContent='';
+
+      // ตรวจสอบแอดมิน
+      if(uid === '00000' && pass === '12345'){
+        currentUser = { uid:'00000', name:'ผู้ดูแลระบบ', pass:'12345', room:'ADMIN' };
+        showPage('page-admin');
+        listenVotingState();
+        return;
+      }
+
+      // ผู้ใช้ทั่วไป
+      const snap = await db.ref('users/'+uid).once('value');
+      if(!snap.exists() || snap.val().pass!==pass){ msg.textContent='รหัสผิด หรือ ไม่มีผู้ใช้'; return }
+      currentUser = snap.val();
+      onLoginSuccess();
+    }
+
+    function onLoginSuccess(){
+      // แอดมินเข้าสู่ระบบ
+      if(currentUser.uid === '00000' && currentUser.pass === '12345'){
+        showPage('page-admin');
+        return;
+      }
+      // show user info
+      document.getElementById('user-info').textContent = currentUser.name + ' ('+currentUser.uid+') - ห้อง '+currentUser.room;
+      document.getElementById('user-info-seat').textContent = currentUser.name + ' - ห้อง '+currentUser.room;
+
+      // populate room selects
+      const rsv = document.getElementById('room-select-seat');
+      rsv.innerHTML=''; rooms.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=r; rsv.appendChild(o)});
+      /* room-select-vote removed per new UI design */
+      document.getElementById('room-select-seat').value = currentUser.room;
+
+      showPage('page-vote');
+
+      // start listening for voting state and votes
+      listenVotingState();
+      listenVotes();
+      listenSeatChanges();
+    }
+
+    function doLogout(){
+      currentUser = null;
+      // ซ่อนทุกหน้าให้หมดก่อน
+      ['page-login','page-signup','page-vote','page-seat','page-admin','page-admin-seatview']
+        .forEach(p => document.getElementById(p)?.classList.add('hidden'));
+      // เคลียร์สถานะ / ตัวแปรสำคัญ
+      selectedSeatIndex = null;
+      document.getElementById('seat-status').textContent = '-';
+      // แสดงหน้าเข้าสู่ระบบ
+      showPage('page-login');
+    }
+
+    // ---- ADMIN COUNTDOWN TIMER ----
+let adminCountdown = null;
+function startAdminTimer(endTs){
+  clearInterval(adminCountdown);
+  const box=document.getElementById('admin-timer-box');
+  const label=document.getElementById('admin-timer-value');
+  const bar=document.getElementById('admin-timer-bar');
+  box.classList.remove('hidden');
+  const total=endTs-Date.now();
+  function tickAdmin(){
+    const left=Math.max(0,Math.round((endTs-Date.now())/1000));
+    label.textContent=left;
+    const pct=Math.max(0,((endTs-Date.now())/total)*100);
+    bar.style.width=pct+'%';
+    if(left<=0){ clearInterval(adminCountdown); box.classList.add('hidden'); }
+  }
+  tickAdmin(); adminCountdown=setInterval(tickAdmin,500);
+}
+
+// Voting logic (global timer)
+    async function startVote(){
+      // only set voting if not active
+      const voteRef = db.ref('voting');
+      const snapshot = await voteRef.once('value');
+      const now = Date.now();
+      const duration=30000; // 30 sec
+      // set votingActive and end timestamp
+      await voteRef.update({ votingActive:true, votingEndsAt: now+duration });
+      // reset vote counts per room/layout
+      for(const r of rooms){
+        await db.ref('votes/'+encodeRoom(r)).set({1:0,2:0,3:0});
+      }
+    }
+
+    function listenVotingState(){
+      db.ref('voting').on('value',snap=>{
+        const v = snap.val();
+        const notice = document.getElementById('vote-notice');
+        const countdown = document.getElementById('countdown');
+        if(v && v.votingActive && v.votingEndsAt){
+          notice.textContent='กำลังโหวตรูปแบบ...';
+          countdown.classList.remove('hidden');
+          startCountdown(v.votingEndsAt);
+if(currentUser && currentUser.uid==='00000') startAdminTimer(v.votingEndsAt);
+        } else {
+          notice.textContent='ยังไม่เริ่มการโหวต';
+          countdown.classList.add('hidden');
+          document.getElementById('countdown-t').textContent='00';
+        }
+      })
+    }
+
+    let countdownTimer=null;
+    function startCountdown(endTs){
+      clearInterval(countdownTimer);
+      function tick(){
+        const left = Math.max(0, Math.round((endTs - Date.now())/1000));
+        document.getElementById('countdown-t').textContent = left;
+        if(left<=0){ clearInterval(countdownTimer); onVotingFinished(); }
+      }
+      tick(); countdownTimer=setInterval(tick,500);
+    }
+
+    async function onVotingFinished(){
+      // compute winners for each room and store to /results/{room}
+      for(const r of rooms){
+        const snap = await db.ref('votes/'+encodeRoom(r)).once('value');
+        const counts = snap.val()||{1:0,2:0,3:0};
+        // choose max layout (tie -> lowest number)
+        let winner=1; let max=counts[1]||0;
+        for(let i=2;i<=3;i++){ if((counts[i]||0)>max){ max=counts[i]; winner=i; } }
+        await db.ref('results/'+encodeRoom(r)).set({winner});
+      }
+      // set voting inactive
+      await db.ref('voting').update({votingActive:false, votingEndsAt:null});
+      // automatically navigate user to seat page
+      if(currentUser) showPage('page-seat');
+    }
+
+    // voting per room
+    async function castVote(layoutIndex){
+      if(!currentUser) return alert('ล็อกอินก่อนโหวต');
+      const voteRef = db.ref('voting');
+      const v = (await voteRef.once('value')).val();
+      if(!v || !v.votingActive) return alert('ยังไม่ได้เริ่มโหวต');
+      const room = currentUser.room;
+
+      // ❗ ตรวจว่าผู้ใช้โหวตไปแล้วหรือยัง (1 คน = 1 โหวต)
+      const userVoteRef = db.ref('userVotes/'+currentUser.uid+'/'+encodeRoom(room));
+      const votedSnap = await userVoteRef.once('value');
+      if(votedSnap.exists()){
+        alert('คุณได้โหวตไปแล้ว ไม่สามารถโหวตซ้ำได้');
+        return;
+      }
+
+      // เพิ่มคะแนนโหวต
+      const p = db.ref('votes/'+encodeRoom(room)+'/'+layoutIndex);
+      await p.transaction(curr => (curr||0)+1);
+
+      // บันทึกว่าผู้ใช้โหวตแล้ว
+      await userVoteRef.set({layout:layoutIndex,ts:Date.now()});
+
+      alert('โหวตเรียบร้อย');
+    }
+
+    // listen votes and results
+    function listenVotes(){
+      for(const r of rooms){
+        db.ref('votes/'+encodeRoom(r)).on('value',snap=>{
+          const v = snap.val()||{};
+          document.getElementById('votes-1').textContent = v[1]||0;
+          document.getElementById('votes-2').textContent = v[2]||0;
+          document.getElementById('votes-3').textContent = v[3]||0;
+        })
+      }
+    }
+
+    // seat selection
+    function encodeRoom(r){ return r.replace('/','_'); }
+
+    async function listenSeatChanges(){
+      // listen to results so we can re-render if winner changes
+      for(const r of rooms){
+        db.ref('results/'+encodeRoom(r)).on('value', ()=>{
+          // if user on seat page and viewing this room, re-render
+          if(!document.getElementById('page-seat').classList.contains('hidden')) renderSeatLayout();
+        })
+        db.ref('seats/'+encodeRoom(r)).on('value', ()=>{ if(!document.getElementById('page-seat').classList.contains('hidden')) renderSeatLayout(); })
+      }
+    }
+
+    document.getElementById('room-select-seat').addEventListener('change',()=>renderSeatLayout());
+
+    function createGap(){
+  const g = document.createElement('div');
+  g.className = 'gap';
+  return g;
+}
+
+
+    async function renderSeatLayout(){
+      const room = document.getElementById('room-select-seat').value || currentUser.room;
+      const MAX_SEAT = getSeatCountByRoom(room);
+      document.getElementById('seat-status').textContent = 'รอเลือก';
+
+      const resSnap = await db.ref('results/'+encodeRoom(room)).once('value');
+      const winner = (resSnap.exists() && resSnap.val().winner) ? resSnap.val().winner : 1;
+      const seatsSnap = await db.ref('seats/'+encodeRoom(room)).once('value');
+      const seats = seatsSnap.val() || {};
+
+      const layoutDiv = document.getElementById('layout-preview');
+      layoutDiv.innerHTML = '';
+
+      const seatContainer = document.createElement('div');
+      seatContainer.className = 'seats';
+
+      const createSeat = (i)=>{
+        const s = document.createElement('div');
+        s.className = 'seat';
+        const owner = seats[i];
+        if(owner){
+          s.classList.add('booked');
+          s.innerHTML = `<div>${i}</div><div style=\"font-size:10px;margin-top:2px;text-align:center;\">${owner.name}</div>`;
+          if(owner.uid===currentUser.uid) s.classList.add('mine');
+        }else{
+          s.innerHTML = `<div>${i}</div>`;
+          s.onclick = ()=>selectSeat(i,null);
+        }
+        return s;
+      };
+
+      if(winner === 1){
+  // 3 กลุ่ม ๆ ละ 3 คอลัมน์ + ช่องว่าง
+  seatContainer.style.gridTemplateColumns =
+    'repeat(3, 68px) 40px repeat(3, 68px) 40px repeat(3, 68px)';
+
+  let n = 1;
+
+  // 5 แถว
+  for(let row = 0; row < 5; row++){
+    // กลุ่มซ้าย (3 ที่)
+    for(let c = 0; c < 3; c++){
+      if(n <= MAX_SEAT) if(n <= MAX_SEAT){ seatContainer.appendChild(createSeat(n++)); } else { seatContainer.appendChild(GAP()); }
+    }
+
+    // ช่องว่าง
+    const gap1 = document.createElement('div');
+    gap1.className = 'gap';
+    seatContainer.appendChild(gap1);
+
+    // กลุ่มกลาง (3 ที่)
+    for(let c = 0; c < 3; c++){
+      if(n <= MAX_SEAT) if(n <= MAX_SEAT){ seatContainer.appendChild(createSeat(n++)); } else { seatContainer.appendChild(GAP()); }
+    }
+
+    // ช่องว่าง
+    const gap2 = document.createElement('div');
+    gap2.className = 'gap';
+    seatContainer.appendChild(gap2);
+
+    // กลุ่มขวา (3 ที่)
+    for(let c = 0; c < 3; c++){
+      if(n <= MAX_SEAT) if(n <= MAX_SEAT){ seatContainer.appendChild(createSeat(n++)); } else { seatContainer.appendChild(GAP()); }
+    }
+  }
+}
+
+
+      if(winner===2){
+        seatContainer.style.gridTemplateColumns='repeat(8,60px)';
+        for(let i=1;i<=MAX_SEAT;i++) seatContainer.appendChild(createSeat(i));
+      }
+
+      if (winner === 3) {
+  seatContainer.style.gridTemplateColumns = 'repeat(12, 60px)';
+  let n = 1;
+
+  const GAP = () => {
+    const g = document.createElement('div');
+    g.className = 'gap';
+    return g;
+  };
+
+  /* ===== แถวบน (เว้นโล่งทั้งหมด) ===== */
+  for (let i = 0; i < 12; i++) {
+    seatContainer.appendChild(GAP());
+  }
+
+  /* ===== เสาซ้าย + เสาขวา (แนวตั้ง) ===== */
+  // จำนวนแถวแนวตั้ง (ตามรูป = 7 แถว)
+  for (let row = 0; row < 7; row++) {
+    // ซ้าย 2 ที่
+    if(n <= MAX_SEAT){ seatContainer.appendChild(createSeat(n++)); } else { seatContainer.appendChild(GAP()); }
+    if(n <= MAX_SEAT){ seatContainer.appendChild(createSeat(n++)); } else { seatContainer.appendChild(GAP()); }
+
+    // ช่องว่างกลาง
+    for (let i = 0; i < 8; i++) {
+      seatContainer.appendChild(GAP());
+    }
+
+    // ขวา 2 ที่
+    if(n <= MAX_SEAT){ seatContainer.appendChild(createSeat(n++)); } else { seatContainer.appendChild(GAP()); }
+    if(n <= MAX_SEAT){ seatContainer.appendChild(createSeat(n++)); } else { seatContainer.appendChild(GAP()); }
+  }
+
+  /* ===== แถวล่าง (แนวนอน) ===== */
+  // เว้นขอบซ้าย 2 ช่อง
+  seatContainer.appendChild(GAP());
+  seatContainer.appendChild(GAP());
+
+  // ที่นั่งล่าง 8 ที่
+  for (let i = 0; i < 8; i++) {
+    if(n <= MAX_SEAT){ seatContainer.appendChild(createSeat(n++)); } else { seatContainer.appendChild(GAP()); }
+  }
+
+  // เว้นขอบขวา 2 ช่อง
+  seatContainer.appendChild(GAP());
+  seatContainer.appendChild(GAP());
+}
+
+      layoutDiv.appendChild(seatContainer);
+    }
+
+    let selectedSeatIndex = null;
+    function selectSeat(i,owner){
+      if(owner){ if(owner.uid===currentUser.uid){ selectedSeatIndex = i; document.getElementById('seat-status').textContent = 'คุณเลือกที่นั่ง '+i; } else { alert('ที่นั่งถูกจองแล้ว'); } return }
+      // toggle select
+      selectedSeatIndex = i;
+      document.getElementById('seat-status').textContent = 'เลือกที่นั่ง: '+i;
+      // visually mark selected seat
+      const seatsEls = document.querySelectorAll('#layout-preview .seat'); seatsEls.forEach(el=>el.classList.remove('mine'));
+      const matching = Array.from(seatsEls).find(el=>el.textContent==i);
+      if(matching) matching.classList.add('mine');
+    }
+
+    async function confirmSeat(){
+      if(!selectedSeatIndex) return alert('เลือกที่นั่งก่อนยืนยัน');
+      const room = document.getElementById('room-select-seat').value;
+      const userSeatRef = db.ref('userSeats/'+currentUser.uid);
+      const prevSnap = await userSeatRef.once('value');
+      if(prevSnap.exists() && prevSnap.val().room===room && prevSnap.val().seat!==selectedSeatIndex){
+        return alert('คุณมีที่นั่งแล้ว หากต้องการเปลี่ยน กรุณายกเลิกที่นั่งเดิมก่อน');
+      }
+      const seatRef = db.ref('seats/'+encodeRoom(room)+'/'+selectedSeatIndex);
+      const res = await seatRef.transaction(curr => { if(curr) return; return {uid:currentUser.uid,name:currentUser.name,ts:Date.now()} });
+      if(!res.committed){ alert('จองไม่สำเร็จ ที่นั่งถูกจองไปแล้ว'); renderSeatLayout(); return }
+      await userSeatRef.set({room,seat:selectedSeatIndex});
+      alert('จองสำเร็จ ที่นั่ง: '+selectedSeatIndex);
+      document.getElementById('seat-status').textContent = 'จองสำเร็จ: '+selectedSeatIndex;
+    }
+
+    // utility: on load, initialize minimal DB structure
+
+    async function resetSystem(){
+      if(!confirm('ยืนยันการรีเซ็ตระบบทั้งหมด?')) return;
+      await db.ref('votes').remove();
+      await db.ref('results').remove();
+      await db.ref('seats').remove();
+      await db.ref('userVotes').remove();
+      await db.ref('userSeats').remove();
+      alert('รีเซ็ตระบบเรียบร้อย');
+    }
+
+// utility: on load, initialize minimal DB structure
+    (async function init(){
+      // ensure vote structures exist
+      const base = await db.ref().once('value');
+      // create results/seats/votes paths if not exists
+      for(const r of rooms){
+        const key = encodeRoom(r);
+        const v = (await db.ref('votes/'+key).once('value')).val();
+        if(!v) await db.ref('votes/'+key).set({1:0,2:0,3:0});
+        const res = (await db.ref('results/'+key).once('value')).val();
+        if(!res) await db.ref('results/'+key).set({winner:1});
+        const seats = (await db.ref('seats/'+key).once('value')).val();
+        if(!seats){ // empty seats
+          // do not prefill; leave empty object
+        }
+      }
+    })();
+
+    // listen for results to update UI if on vote page
+    db.ref('results').on('value',()=>{
+      // no-op but triggers listeners
+    })
+
+    // helper to open seat page when clicking start or auto
+    // initial view
+    showPage('page-login');
+  </script>
+  
+  <script>
+async function cancelMySeat(){
+  if(!currentUser) return;
+
+  const userSeatRef = db.ref('userSeats/'+currentUser.uid);
+  const snap = await userSeatRef.once('value');
+
+  if(!snap.exists()){
+    alert('คุณยังไม่มีที่นั่ง');
+    return;
+  }
+
+  const { room, seat } = snap.val();
+
+  if(!confirm(`ยืนยันยกเลิกที่นั่ง ${seat} ห้อง ${room} ?`)) return;
+
+  // ลบที่นั่งออกจากผัง
+  await db.ref('seats/'+encodeRoom(room)+'/'+seat).remove();
+  // ลบข้อมูลที่นั่งของผู้ใช้
+  await userSeatRef.remove();
+
+  selectedSeatIndex = null;
+  document.getElementById('seat-status').textContent = 'ยกเลิกที่นั่งแล้ว';
+
+  alert('ยกเลิกที่นั่งเรียบร้อย');
+  renderSeatLayout();
+}
+</script>
+
+</body>
+  <script>
+
+    // ✅ ใช้ layout logic เดียวกับ renderSeatLayout (แต่ไม่มี click)
+function renderAdminSeatView(){
+  const room = document.getElementById('admin-room-select').value;
+  const container = document.getElementById('admin-seat-container');
+  container.innerHTML = '';
+
+  Promise.all([
+    db.ref('results/'+encodeRoom(room)).once('value'),
+    db.ref('seats/'+encodeRoom(room)).once('value')
+  ]).then(([resSnap, seatSnap])=>{
+
+    const winner = resSnap.exists() ? resSnap.val().winner : 1;
+    const seats = seatSnap.val() || {};
+    const MAX_SEAT = getSeatCountByRoom(room);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const title = document.createElement('h3');
+    title.textContent = 'ห้อง ' + room;
+    card.appendChild(title);
+
+    const seatContainer = document.createElement('div');
+    seatContainer.className = 'seats';
+
+    const createSeatAdmin = (i)=>{
+      const s = document.createElement('div');
+      s.className = 'seat';
+      if(seats[i]){
+        s.classList.add('booked');
+        s.innerHTML = `<div>${i}</div><div style="font-size:10px;margin-top:2px;text-align:center;">${seats[i].name}</div>`;
+      }else{
+        s.innerHTML = `<div>${i}</div>`;
+      }
+      return s;
+    };
+
+    let n = 1;
+
+    /* ===== layout 1 ===== */
+    if(winner === 1){
+      seatContainer.style.gridTemplateColumns =
+        'repeat(3,68px) 40px repeat(3,68px) 40px repeat(3,68px)';
+
+      for(let row=0; row<5; row++){
+        for(let i=0;i<3;i++) seatContainer.appendChild(n<=MAX_SEAT ? createSeatAdmin(n++) : createGap());
+        seatContainer.appendChild(createGap());
+        for(let i=0;i<3;i++) seatContainer.appendChild(n<=MAX_SEAT ? createSeatAdmin(n++) : createGap());
+        seatContainer.appendChild(createGap());
+        for(let i=0;i<3;i++) seatContainer.appendChild(n<=MAX_SEAT ? createSeatAdmin(n++) : createGap());
+      }
+    }
+
+    /* ===== layout 2 ===== */
+    if(winner === 2){
+      seatContainer.style.gridTemplateColumns = 'repeat(8,60px)';
+      for(let i=1;i<=MAX_SEAT;i++) seatContainer.appendChild(createSeatAdmin(i));
+    }
+
+    /* ===== layout 3 ===== */
+    if(winner === 3){
+      seatContainer.style.gridTemplateColumns = 'repeat(12,60px)';
+
+      for(let i=0;i<12;i++) seatContainer.appendChild(createGap());
+
+      for(let row=0; row<7; row++){
+        for(let i=0;i<2;i++) seatContainer.appendChild(n<=MAX_SEAT ? createSeatAdmin(n++) : createGap());
+        for(let i=0;i<8;i++) seatContainer.appendChild(createGap());
+        for(let i=0;i<2;i++) seatContainer.appendChild(n<=MAX_SEAT ? createSeatAdmin(n++) : createGap());
+      }
+
+      for(let i=0;i<2;i++) seatContainer.appendChild(createGap());
+      for(let i=0;i<8;i++) seatContainer.appendChild(n<=MAX_SEAT ? createSeatAdmin(n++) : createGap());
+      for(let i=0;i<2;i++) seatContainer.appendChild(createGap());
+    }
+
+    card.appendChild(seatContainer);
+    container.appendChild(card);
+  });
+}
+
+
+    function initAdminRoomSelect(){
+      const sel = document.getElementById('admin-room-select');
+      sel.innerHTML='';
+      rooms.forEach(r=>{
+        const o=document.createElement('option'); o.value=r; o.textContent=r; sel.appendChild(o);
+      });
+    }
+
+    document.getElementById('page-admin-seatview').addEventListener('mouseenter',()=>{
+      initAdminRoomSelect();
+      renderAdminSeatView();
+    });
+
+    function initAdminRoomSelect(){
+      const sel = document.getElementById('admin-room-select');
+      sel.innerHTML='';
+      rooms.forEach(r=>{
+        const o=document.createElement('option'); o.value=r; o.textContent=r; sel.appendChild(o);
+      });
+    }
+
+    document.getElementById('page-admin-seatview').addEventListener('mouseenter',()=>{
+      initAdminRoomSelect();
+      renderAdminSeatView();
+    });
+  </script>
+</html>
