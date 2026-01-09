@@ -19,8 +19,27 @@
     .small{padding:8px;font-size:14px}
     .hidden{display:none}
     .center{text-align:center}
-    /* seat grid */
-    .seats{display:grid;grid-template-columns:repeat(5,68px);gap:14px;justify-content:center;margin: 0 auto;}
+  /* seat grid */
+    .seats{
+  display: grid;
+  gap: 14px;
+  margin: 0 auto;
+
+  /* ⭐ สำคัญ */
+  width: max-content;
+  
+  /* scroll เฉพาะผังที่นั่ง */
+.seat-scroll{
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 12px;
+
+  -webkit-overflow-scrolling: touch;
+}
+
+}
+
     .seat{width:68px;height:60px;background:#cbb39d;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;color:#3b2a1f;cursor:pointer}
     .seat.booked{background:#9e9e9e;cursor:not-allowed;opacity:0.9}
     .seat.mine{outline:3px solid #ffb6d6}
@@ -194,7 +213,7 @@
         <div style="margin-left:auto">สถานะการเลือกที่นั่ง: <span id="seat-status">-</span></div>
       </div>
 
-      <div id="layout-preview" style="min-height:480px">
+      <div id="layout-preview" class="seat-scroll">
         <!-- dynamic seat map will render here -->
       </div>
 
