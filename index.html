@@ -114,7 +114,7 @@
 </div>
 
       <div class="footer-actions">
-        <button class="btn" onclick="startVote()">เริ่มโหวต (30 วินาที)</button>
+        <button class="btn" onclick="startVote()">เริ่มโหวต (5 นาที)</button>
         <button class="btn ghost" onclick="showPage('page-seat')">ไปหน้าเลือกที่นั่ง</button>
         <button class="btn ghost" onclick="showPage('page-admin-seatview')">ดูผังที่นั่งทุกห้อง</button>
         <button class="btn ghost" onclick="resetSystem()">รีเซ็ตระบบ</button>
@@ -398,7 +398,7 @@ function startAdminTimer(endTs){
       const voteRef = db.ref('voting');
       const snapshot = await voteRef.once('value');
       const now = Date.now();
-      const duration=30000; // 30 sec
+      const duration = 300000; // 5 mins
       // set votingActive and end timestamp
       await voteRef.update({ votingActive:true, votingEndsAt: now+duration });
       // reset vote counts per room/layout
