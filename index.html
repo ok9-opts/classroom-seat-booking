@@ -398,7 +398,7 @@ function startAdminTimer(endTs){
       const voteRef = db.ref('voting');
       const snapshot = await voteRef.once('value');
       const now = Date.now();
-      const duration = 300000; // 5 mins
+      const duration = 3 * 60 * 60 * 1000; // 5 hours
       // set votingActive and end timestamp
       await voteRef.update({ votingActive:true, votingEndsAt: now+duration });
       // reset vote counts per room/layout
@@ -416,6 +416,13 @@ function startAdminTimer(endTs){
           notice.textContent='กำลังโหวตรูปแบบ...';
           countdown.classList.remove('hidden');
           startCountdown(v.votingEndsAt);
+          // 🔒 STEP 3: ถ้าอยู่หน้าเลือกที่นั่ง → ซ่อนผังทันที
+if(!document.getElementById('page-seat').classList.contains('hidden')){
+  document.getElementById('layout-preview').innerHTML = '';
+  document.getElementById('seat-status').textContent =
+    '🗳️ กำลังโหวตรูปแบบใหม่';
+}
+
 if(currentUser && currentUser.uid==='00000') startAdminTimer(v.votingEndsAt);
         } else {
           notice.textContent='ยังไม่เริ่มการโหวต';
@@ -515,11 +522,29 @@ if(currentUser && currentUser.uid==='00000') startAdminTimer(v.votingEndsAt);
 
     async function renderSeatLayout(){
       const room = document.getElementById('room-select-seat').value || currentUser.room;
+      const voteSnap = await db.ref('voting').once('value');
+if(voteSnap.exists() && voteSnap.val().votingActive){
+  document.getElementById('layout-preview').innerHTML = '';
+  document.getElementById('seat-status').textContent =
+    '🗳️ กำลังโหวตรูปแบบห้อง';
+  return;
+}
+
+// 🔒 ถ้ายังไม่มีผลโหวต → หน้าเปล่า
+const resSnap = await db.ref('results/'+encodeRoom(room)).once('value');
+if(!resSnap.exists()){
+  document.getElementById('layout-preview').innerHTML = '';
+  document.getElementById('seat-status').textContent =
+    '⏳ รอผลโหวตรูปแบบห้อง';
+  return;
+}
+
+// ✅ มีผลโหวตแล้ว
+const winner = resSnap.val().winner;
+
       const MAX_SEAT = getSeatCountByRoom(room);
       document.getElementById('seat-status').textContent = 'รอเลือก';
 
-      const resSnap = await db.ref('results/'+encodeRoom(room)).once('value');
-      const winner = (resSnap.exists() && resSnap.val().winner) ? resSnap.val().winner : 1;
       const seatsSnap = await db.ref('seats/'+encodeRoom(room)).once('value');
       const seats = seatsSnap.val() || {};
 
@@ -674,6 +699,13 @@ if(currentUser && currentUser.uid==='00000') startAdminTimer(v.votingEndsAt);
       await db.ref('userVotes').remove();
       await db.ref('userSeats').remove();
       alert('รีเซ็ตระบบเรียบร้อย');
+      // 🔄 STEP 4: รีเซ็ตแล้ว หน้าเลือกที่นั่งเป็นหน้าเปล่า
+if(!document.getElementById('page-seat').classList.contains('hidden')){
+  document.getElementById('layout-preview').innerHTML = '';
+  document.getElementById('seat-status').textContent =
+    'ระบบถูกรีเซ็ต กรุณารอการโหวต';
+}
+
     }
 
 // utility: on load, initialize minimal DB structure
