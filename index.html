@@ -298,21 +298,18 @@
   document.getElementById(id).classList.remove('hidden');
 
   if(id === 'page-signup'){
-    initSignupRoom(); // ✅ สำคัญ
+    initSignupRoom();
   }
 
- if(id === 'page-seat'){
-  db.ref('voting').once('value').then(snap=>{
-    const v = snap.val();
-    if(v && v.votingActive){
-      alert('ยังอยู่ในช่วงโหวต ไม่สามารถเลือกที่นั่งได้');
-      showPage('page-vote');
-      return;
-    }
+  if(id === 'page-seat'){
     setTimeout(()=>renderSeatLayout(),0);
-  });
-}
+  }
 
+  // ⭐ เพิ่มตรงนี้
+  if(id === 'page-admin-seatview'){
+    initAdminRoomSelect();
+    renderAdminSeatView();
+  }
 }
 
 
@@ -883,11 +880,6 @@ function renderAdminSeatView(){
       });
     }
 
-    document.getElementById('page-admin-seatview').addEventListener('mouseenter',()=>{
-      initAdminRoomSelect();
-      renderAdminSeatView();
-    });
-
     function initAdminRoomSelect(){
       const sel = document.getElementById('admin-room-select');
       sel.innerHTML='';
@@ -895,10 +887,5 @@ function renderAdminSeatView(){
         const o=document.createElement('option'); o.value=r; o.textContent=r; sel.appendChild(o);
       });
     }
-
-    document.getElementById('page-admin-seatview').addEventListener('mouseenter',()=>{
-      initAdminRoomSelect();
-      renderAdminSeatView();
-    });
   </script>
 </html>
