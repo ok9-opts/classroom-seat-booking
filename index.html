@@ -247,7 +247,7 @@
 
     // --- global state ---
     let currentUser = null; // { uid, name, room }
-    const rooms = ['1/8','2/8','3/8','4/1','4/8','5/8','6/8','5/1','5/5','5/10','5/9'];
+    const rooms = ['1/8','2/8','3/8','4/1','4/8','5/1','5/2','5/3','5/4','5/5','5/6','5/7','5/8','5/9','5/10','5/11','5/12','6/8',];
     function initSignupRoom(){
   const sel = document.getElementById('signup-room');
   if(!sel) return;
@@ -273,6 +273,13 @@
     // ✅ ห้องใหม่
     case '4/1': return 39;
     case '5/1': return 40;
+    case '5/2': return 38;
+    case '5/3': return 36;
+    case '5/4': return 31;
+    case '5/6': return 40;
+    case '5/7': return 35;
+    case '5/11': return 20;
+    case '5/12': return 40;
     case '5/5': return 38;
     case '5/10': return 29;
     case '5/9': return 28;
@@ -291,18 +298,21 @@
   document.getElementById(id).classList.remove('hidden');
 
   if(id === 'page-signup'){
-    initSignupRoom();
+    initSignupRoom(); // ✅ สำคัญ
   }
 
-  if(id === 'page-seat'){
+ if(id === 'page-seat'){
+  db.ref('voting').once('value').then(snap=>{
+    const v = snap.val();
+    if(v && v.votingActive){
+      alert('ยังอยู่ในช่วงโหวต ไม่สามารถเลือกที่นั่งได้');
+      showPage('page-vote');
+      return;
+    }
     setTimeout(()=>renderSeatLayout(),0);
-  }
+  });
+}
 
-  // ⭐ เพิ่มตรงนี้
-  if(id === 'page-admin-seatview'){
-    initAdminRoomSelect();
-    renderAdminSeatView();
-  }
 }
 
 
@@ -404,7 +414,7 @@ function startAdminTimer(endTs){
       const voteRef = db.ref('voting');
       const snapshot = await voteRef.once('value');
       const now = Date.now();
-      const duration = 3 * 60 * 60 * 1000; // 5 hours
+      const duration = 300000; // 5 mins
       // set votingActive and end timestamp
       await voteRef.update({ votingActive:true, votingEndsAt: now+duration });
       // reset vote counts per room/layout
@@ -414,29 +424,47 @@ function startAdminTimer(endTs){
     }
 
     function listenVotingState(){
-      db.ref('voting').on('value',snap=>{
-        const v = snap.val();
-        const notice = document.getElementById('vote-notice');
-        const countdown = document.getElementById('countdown');
-        if(v && v.votingActive && v.votingEndsAt){
-          notice.textContent='กำลังโหวตรูปแบบ...';
-          countdown.classList.remove('hidden');
-          startCountdown(v.votingEndsAt);
-          // 🔒 STEP 3: ถ้าอยู่หน้าเลือกที่นั่ง → ซ่อนผังทันที
-if(!document.getElementById('page-seat').classList.contains('hidden')){
-  document.getElementById('layout-preview').innerHTML = '';
-  document.getElementById('seat-status').textContent =
-    '🗳️ กำลังโหวตรูปแบบใหม่';
+  db.ref('voting').on('value', snap=>{
+    const v = snap.val();
+    if(!v) return;
+
+    // ===============================
+    // 🔴 กำลังโหวต
+    // ===============================
+    if(v.votingActive){
+
+      // สถานะโหวต (ของเดิม)
+      document.getElementById('vote-status').textContent = 'กำลังโหวต';
+      document.getElementById('vote-timer').textContent =
+        v.timeLeft ? v.timeLeft + ' วินาที' : '';
+
+      // ⛔ ข้อ 4: ซ่อนปุ่มไปหน้าเลือกที่นั่ง
+      document.querySelectorAll(
+        'button[onclick="showPage(\'page-seat\')"]'
+      ).forEach(b=>b.classList.add('hidden'));
+
+    }
+
+    // ===============================
+    // 🟢 โหวตจบแล้ว
+    // ===============================
+    else{
+
+      // สถานะโหวต (ของเดิม)
+      document.getElementById('vote-status').textContent = 'โหวตเสร็จแล้ว';
+      document.getElementById('vote-timer').textContent = '';
+
+      // ✅ แสดงปุ่มไปหน้าเลือกที่นั่ง
+      document.querySelectorAll(
+        'button[onclick="showPage(\'page-seat\')"]'
+      ).forEach(b=>b.classList.remove('hidden'));
+
+      // ✅ โหลดผังที่นั่งตามผลโหวตที่ชนะ
+      renderSeatLayout();
+    }
+  });
 }
 
-if(currentUser && currentUser.uid==='00000') startAdminTimer(v.votingEndsAt);
-        } else {
-          notice.textContent='ยังไม่เริ่มการโหวต';
-          countdown.classList.add('hidden');
-          document.getElementById('countdown-t').textContent='00';
-        }
-      })
-    }
 
     let countdownTimer=null;
     function startCountdown(endTs){
@@ -527,30 +555,19 @@ if(currentUser && currentUser.uid==='00000') startAdminTimer(v.votingEndsAt);
 
 
     async function renderSeatLayout(){
+      const vSnap = await db.ref('voting').once('value');
+  const v = vSnap.val();
+  if(v && v.votingActive){
+    document.getElementById('layout-preview').innerHTML =
+      '<div class="notice center">⏳ รอให้การโหวตสิ้นสุดก่อน จึงจะเลือกที่นั่งได้</div>';
+    return;
+  }
       const room = document.getElementById('room-select-seat').value || currentUser.room;
-      const voteSnap = await db.ref('voting').once('value');
-if(voteSnap.exists() && voteSnap.val().votingActive){
-  document.getElementById('layout-preview').innerHTML = '';
-  document.getElementById('seat-status').textContent =
-    '🗳️ กำลังโหวตรูปแบบห้อง';
-  return;
-}
-
-// 🔒 ถ้ายังไม่มีผลโหวต → หน้าเปล่า
-const resSnap = await db.ref('results/'+encodeRoom(room)).once('value');
-if(!resSnap.exists()){
-  document.getElementById('layout-preview').innerHTML = '';
-  document.getElementById('seat-status').textContent =
-    '⏳ รอผลโหวตรูปแบบห้อง';
-  return;
-}
-
-// ✅ มีผลโหวตแล้ว
-const winner = resSnap.val().winner;
-
       const MAX_SEAT = getSeatCountByRoom(room);
       document.getElementById('seat-status').textContent = 'รอเลือก';
 
+      const resSnap = await db.ref('results/'+encodeRoom(room)).once('value');
+      const winner = (resSnap.exists() && resSnap.val().winner) ? resSnap.val().winner : 1;
       const seatsSnap = await db.ref('seats/'+encodeRoom(room)).once('value');
       const seats = seatsSnap.val() || {};
 
@@ -680,6 +697,15 @@ const winner = resSnap.val().winner;
     }
 
     async function confirmSeat(){
+      
+  const vSnap = await db.ref('voting').once('value');
+  const v = vSnap.val();
+  if(v && v.votingActive){
+    alert('ยังไม่สามารถจองที่นั่งได้จนกว่าการโหวตจะสิ้นสุด');
+    return;
+  }
+
+      
       if(!selectedSeatIndex) return alert('เลือกที่นั่งก่อนยืนยัน');
       const room = document.getElementById('room-select-seat').value;
       const userSeatRef = db.ref('userSeats/'+currentUser.uid);
@@ -705,13 +731,6 @@ const winner = resSnap.val().winner;
       await db.ref('userVotes').remove();
       await db.ref('userSeats').remove();
       alert('รีเซ็ตระบบเรียบร้อย');
-      // 🔄 STEP 4: รีเซ็ตแล้ว หน้าเลือกที่นั่งเป็นหน้าเปล่า
-if(!document.getElementById('page-seat').classList.contains('hidden')){
-  document.getElementById('layout-preview').innerHTML = '';
-  document.getElementById('seat-status').textContent =
-    'ระบบถูกรีเซ็ต กรุณารอการโหวต';
-}
-
     }
 
 // utility: on load, initialize minimal DB structure
@@ -864,6 +883,10 @@ function renderAdminSeatView(){
       });
     }
 
+    document.getElementById('page-admin-seatview').addEventListener('mouseenter',()=>{
+      initAdminRoomSelect();
+      renderAdminSeatView();
+    });
 
     function initAdminRoomSelect(){
       const sel = document.getElementById('admin-room-select');
@@ -873,5 +896,9 @@ function renderAdminSeatView(){
       });
     }
 
+    document.getElementById('page-admin-seatview').addEventListener('mouseenter',()=>{
+      initAdminRoomSelect();
+      renderAdminSeatView();
+    });
   </script>
 </html>
