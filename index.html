@@ -307,8 +307,16 @@
 
   // ⭐ เพิ่มตรงนี้
   if(id === 'page-admin-seatview'){
-    initAdminRoomSelect();
-    renderAdminSeatView();
+  initAdminRoomSelect();
+
+  const sel = document.getElementById('admin-room-select');
+
+  // ตั้งค่า default ครั้งแรกเท่านั้น
+  if(!sel.value){
+    sel.value = rooms[0];
+  }
+
+  renderAdminSeatView();
   }
 }
 
@@ -873,19 +881,26 @@ function renderAdminSeatView(){
 
 
     function initAdminRoomSelect(){
-      const sel = document.getElementById('admin-room-select');
-      sel.innerHTML='';
-      rooms.forEach(r=>{
-        const o=document.createElement('option'); o.value=r; o.textContent=r; sel.appendChild(o);
-      });
-    }
+  const sel = document.getElementById('admin-room-select');
 
-    function initAdminRoomSelect(){
-      const sel = document.getElementById('admin-room-select');
-      sel.innerHTML='';
-      rooms.forEach(r=>{
-        const o=document.createElement('option'); o.value=r; o.textContent=r; sel.appendChild(o);
-      });
-    }
+  const currentValue = sel.value; // จำค่าปัจจุบันไว้
+
+  sel.innerHTML='';
+
+  rooms.forEach(r=>{
+    const o=document.createElement('option');
+    o.value=r;
+    o.textContent=r;
+    sel.appendChild(o);
+  });
+
+  // ตั้งค่ากลับไปที่เดิม
+  if(currentValue && rooms.includes(currentValue)){
+    sel.value = currentValue;
+  }
+}
+
+    
+    
   </script>
 </html>
